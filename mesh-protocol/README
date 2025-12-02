@@ -1,1 +1,9 @@
-mesh-protocol/README.md
+# Mesh Protocol Specification (Draft)
+
+This section will document:
+- Packet structure
+- File-based sync
+- LoRa message format
+- Device IDs
+- Transaction format (JSON schema)
+- Conflict resolution rules
