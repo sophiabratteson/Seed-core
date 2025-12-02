@@ -1,1 +1,8 @@
-specs/README.md
+# Seed Specifications (Draft)
+
+Includes:
+- Hardware specs
+- Software specs
+- Battery/power model
+- Security model
+- Offline AI model behavior
