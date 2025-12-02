@@ -1,1 +1,8 @@
-docs/README.md
+# Seed Documentation Hub
+This folder is the master documentation library.
+
+It contains:
+- Architecture (hardware, software, mesh protocol)
+- Conflict resolution system
+- Dataflow explanations
+- UX specifications
