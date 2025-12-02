@@ -1,1 +1,5 @@
-simulations/README.md
+# Simulations
+This folder contains:
+- Two-laptop sync simulator
+- Ledger consistency tests
+- Conflict resolution tests
