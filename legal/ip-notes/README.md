@@ -1,1 +1,1 @@
-
+# IP thoughts/strategy
