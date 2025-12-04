@@ -1,1 +1,0 @@
-# message types, fields, etc.
