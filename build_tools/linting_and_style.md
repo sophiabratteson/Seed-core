@@ -1,1 +1,0 @@
-# Linting And Style.Md
