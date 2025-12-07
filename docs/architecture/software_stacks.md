@@ -1,215 +1,209 @@
-# Software Stack
+# Seed Software Stack
 
-This document explains all major software layers inside Seed, how they interact, and where they live in the overall system architecture. The Seed software stack is designed to run in extreme environments with no internet access, low power availability, and limited hardware resources.
+This document describes the full software stack for the Seed device — from the lowest-level hardware interfaces through the mesh networking layer, the ledger engine, device applications, and optional companion tools. This stack is designed around three core principles:
 
----
-
-## 1. Overview of the Software Layers
-
-The Seed software stack is organized into layers that move from lowest-level hardware interaction up to high-level user applications.
-
-- Hardware Drivers
-- OS Abstraction / Bare-Metal Services
-- Mesh Networking Stack
-- Ledger Engine
-- Device Applications
-- Security Layer
-- Configuration and Diagnostics
-- Update and Maintenance Layer
-
-Each layer has strict responsibilities and communicates through stable interfaces.
+1. Offline-first operation  
+2. Extreme reliability under low-power, low-connectivity environments  
+3. Security and privacy without dependency on centralized servers
 
 ---
 
-## 2. Hardware Drivers Layer
+## 1. Hardware Abstraction Layer (HAL)
 
-This is the lowest-level layer. It communicates directly with hardware components.
+The HAL provides clean interfaces between low-level electronics and higher-level logic so the device remains portable across microcontrollers.
 
-- LoRa radio driver
-- E-ink display driver
-- Battery/charging sensor driver
-- Capacitive fingerprint sensor driver
-- Secure element (cryptographic chip) driver
-- Button input driver
-- Flash/EEPROM storage driver
+- GPIO access (buttons, interrupts)
+- SPI drivers (e-ink display, secure chip, LoRa radio)
+- I2C drivers (battery sensors, accelerometers)
+- Persistent storage access (flash/EEPROM read/write)
+- Power subsystem hooks (sleep, wake, battery status)
 
-Responsibilities:
-- Initialize hardware peripherals
-- Provide stable functions to higher layers
-- Manage interruptions, timing, and error handling
-- Ensure safe access to flash memory and power sensors
+### Responsibilities
+- Normalize differences between hardware components  
+- Provide stable, predictable APIs for the mesh and ledger layers  
+- Manage safe operations for memory, battery, and timing functions  
 
 ---
 
-## 3. OS Abstraction / Bare-Metal Services
+## 2. Operating Environment
 
-Seed does not use a traditional operating system. Instead, it uses a small bare-metal runtime with the following components:
+A very lightweight real-time loop or RTOS-style scheduler.
 
-- Task scheduler (cooperative or low-power event loop)
-- Timekeeping module
-- Memory safety utilities
-- Power management utilities
-- Persistent data storage helpers
-- Boot sequence and diagnostics
+- Cooperative multitasking (no heavy threads)
+- Event queue for radio messages, button input, and ledger events
+- Watchdog timer for system recovery
+- Power-state controller that enforces ultra-low-power sleep cycles
+- Bootloader for firmware verification and secure updates
 
-Responsibilities:
-- Provide predictable timing
-- Maintain low power consumption
-- Offer simple scheduling for apps and networking tasks
-
----
-
-## 4. Mesh Networking Stack
-
-Implements long-range, offline-first communication between Seed devices.
-
-### Subcomponents:
-- Radio abstraction layer
-- Packet formatter and parser
-- Routing logic for mesh or gossip-style networks
-- Retry/acknowledgment behavior
-- Neighbor discovery and link health scoring
-- Power-saving duty cycles for radio wake/sleep
-- Offline-first sync model
-
-### Responsibilities:
-- Transmit and receive small encrypted messages
-- Sync ledger updates between devices
-- Propagate trust score and group savings updates
-- Handle partial connectivity and message loss
-
-This layer must function even with extremely poor signal conditions.
+### Responsibilities
+- Ensure tasks run in correct priority order  
+- Protect device from crashes or unsafe states  
+- Save power by sleeping aggressively between events  
 
 ---
 
-## 5. Ledger Engine
+## 3. Radio / Mesh Stack
 
-This is the financial core of Seed. It manages all transaction data, histories, and consensus.
+This layer enables communication between Seed devices without WiFi, cell service, or infrastructure.
 
-### Subcomponents:
-- Transaction format validator
-- Ledger data structures
-- Local consistency rules
-- Conflict resolution logic (Lamport clocks + tie-break rules)
-- Checkpointing and recovery
-- Group savings and loan rotation logic
-- Trust score updates
+### Components
+- Radio abstraction layer (LoRa driver, regional configs)
+- Packet encoder/decoder
+- Retry & acknowledgment engine
+- Neighbor discovery logic
+- Gossip-based mesh propagation
+- Sync scheduler (how often to broadcast ledger updates)
 
-### Responsibilities:
-- Maintain accurate financial state
-- Merge updates from other devices
-- Ensure no double-spending
-- Protect integrity of past entries
-- Support offline operation indefinitely
+### Responsibilities
+- Reliable, low-power radio messaging  
+- Multi-hop communication through village/farm/camp sites  
+- Collision avoidance and backoff timing  
+- Packet signing and integrity checking  
 
 ---
 
-## 6. Device Applications
+## 4. Ledger Engine
 
-These are the user-facing features. Each is a lightweight "micro-app" running on the Seed device.
+The most critical subsystem after radio.
 
-### Applications:
-- Wallet application (send/receive money)
-- Group savings app
-- Trust score app
-- Training assistant / AI helper
-- Settings panel
+### Components
+- Transaction validation
+- Double-spend prevention logic
+- Lamport clock assignment
+- Conflict resolution (tie-breaking rules)
+- Local ledger storage (flash-based key/value database)
+- Checkpointing and compaction
+- Sync merge logic (merging peer updates)
 
-### Responsibilities:
-- Provide simple user interaction
-- Display information on low-power e-ink
-- Trigger ledger changes based on user actions
-- Provide educational guidance when needed
-
-All screens must be extremely minimal to save power.
-
----
-
-## 7. Security Layer
-
-Security is embedded at every level of the stack.
-
-### Subcomponents:
-- Secure boot process
-- Device identity key management
-- Encrypted storage
-- Message signing and verification
-- Replay attack protection
-- Tamper detection
-- Emergency wipe function (fake fingerprint mode)
-
-### Responsibilities:
-- Ensure only legitimate transactions are accepted
-- Prevent impersonation or ledger manipulation
-- Protect user funds during loss or theft
-- Maintain user privacy in offline environments
+### Responsibilities
+- Maintain a consistent and tamper-resistant record  
+- Ensure transactions execute even without internet  
+- Reconcile differences between devices during mesh sync  
 
 ---
 
-## 8. Configuration and Diagnostics
+## 5. Trust Score System
 
-This layer manages tunable settings and internal monitoring.
+Tracks a user’s reliability and cooperative behavior across the network.
 
-### Responsibilities:
-- Radio frequency region selection
-- Power profiles (normal, low-power, ultra-low-power)
-- Developer/maintenance modes
-- Debug logging (stored locally for field technicians)
-- Self-test routines for components
+### Components
+- Scoring algorithm  
+- Group-savings behavior metrics  
+- Late payment flags  
+- Device-to-device endorsements  
+- Local-only score storage (privacy-preserving)
 
----
-
-## 9. Update and Maintenance Layer
-
-Because users may go years without internet connectivity, updating is unconventional.
-
-Update channels:
-- USB-based firmware update by field technician
-- Mesh-distributed micro-updates where possible
-- Fallback recovery mode on secure boot
-
-Responsibilities:
-- Allow firmware to evolve across deployments
-- Ensure backward compatibility
-- Guarantee safe rollback if update fails
+### Responsibilities
+- Provide credit-like scoring without centralized banks  
+- Encourage pro-social financial behavior  
 
 ---
 
-## 10. Interactions Between Layers
+## 6. Application Layer
 
-Below is a simplified data flow:
+The user-facing apps that run on the device. These are lightweight modules that sit on top of the ledger and trust systems.
 
-1. User triggers an action in the Device Application.
-2. Ledger Engine validates and logs a new transaction.
-3. Mesh Stack packages and broadcasts updates.
-4. Other devices receive packets and feed them into their Ledger Engine.
-5. Ledger Engine resolves conflicts and updates local state.
-6. Device Applications show updated balances and scores.
+### Core Apps
+- Wallet (send, receive, view history)
+- Group Savings (shared pools, rotations)
+- Micro-loan coordination tools
+- Trust Score viewer
+- Training Assistant (budgeting, fraud warnings)
+- Settings & Identity
 
-All layers are designed for:
-- minimal power usage,
-- extremely small memory footprint,
-- intermittent connectivity.
-
----
-
-## 11. Key Constraints
-
-- Must function fully offline for months or years
-- Must tolerate device loss or destruction
-- Must run on low-power hardware (small battery + solar + hand crank)
-- Must support extremely short messages via LoRa
-- Must avoid any heavy OS components or complex dependencies
-- Must maintain a resilient ledger across a mesh of low-trust nodes
+### Responsibilities
+- Provide simple workflows optimized for e-ink  
+- Enforce permissions and input validation  
+- Integrate tightly with the ledger and sync layers  
 
 ---
 
-## 12. Summary
+## 7. Local AI Assistant (Optional)
 
-The Seed software stack blends:
-- ultra-low-power embedded engineering,
-- offline-first distributed systems,
-- secure financial protocols,
-- simple user applications.
+AI that runs **on-device** without needing internet.
 
-The entire design is optimized for people with no access to traditional financial systems, unstable infrastructure, or the internet. This stack ensures Seed remains reliable, resilient, and scalable across even the most challenging environments.
+### Components
+- Compressed language-understanding model  
+- Natural-language processing for instructions  
+- On-device personalization based on spending behavior  
+- Audio/voice interface (optional)
+
+### Responsibilities
+- Guide users through financial literacy  
+- Explain fraud risks  
+- Recommend savings strategies  
+- Work offline using micro-models and rule-based logic  
+
+---
+
+## 8. Security Layer
+
+This layer spans the entire stack.
+
+### Components
+- Secure element chip for key storage  
+- Firmware signature verification  
+- Transaction signing and verification  
+- Encrypted storage of sensitive data  
+- Replay protection  
+- Emergency duress wipe mechanism  
+- Unique device identity
+
+### Responsibilities
+- Prevent unauthorized access  
+- Protect ledger integrity even if the device is stolen  
+- Maintain trust between peer devices in the mesh  
+
+---
+
+## 9. Companion Tools (Optional, Not Required for Operation)
+
+These are external tools used by developers, field workers, or advanced users.
+
+### Examples
+- Desktop simulator (for testing ledger and mesh behavior)
+- Figma prototypes of UI flows
+- Data export tools for research nodes
+- Over-the-air update preparation utilities
+- Remote debugging logs (optional in-field version)
+
+These tools do **not** require the device to be online; they help development and long-term support.
+
+---
+
+## Summary Diagram
+
+A high-level representation of the entire software stack:
+
+Application Layer  
+→ Wallet, Group Savings, Loans, Training Assistant  
+→ Trust Score Module  
+
+Ledger Engine  
+→ Validation, Conflict Resolution, Sync Merge, Storage  
+
+Mesh Networking Stack  
+→ Radio + Packet Layer, Gossip Routing, Sync Scheduler  
+
+Operating Environment  
+→ Real-time Loop, Watchdog, Power Manager  
+
+Hardware Abstraction Layer  
+→ SPI/I2C/GPIO, Display, LoRa Radio, Sensors, Secure Element  
+
+Physical Hardware  
+→ MCU, Battery, Solar/Crank Input, E-ink Display, Radio Module  
+
+---
+
+## Final Notes
+
+Seed’s software stack is designed so that:
+
+- Every feature works **offline-first**  
+- Hardware is interchangeable and future-proof  
+- Security is baked in at every level  
+- The device remains usable by people of all literacy levels  
+- The ledger remains globally consistent without servers  
+
+This architecture supports Seed’s core mission: enabling financial participation even where infrastructure is weak or nonexistent.
