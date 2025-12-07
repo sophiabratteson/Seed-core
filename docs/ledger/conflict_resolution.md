@@ -17,176 +17,188 @@ This document explains how Seed devices maintain a consistent ledger across a fu
 # 2. Core Concepts
 
 ## Lamport Logical Clocks
-- Each device maintains its own increasing counter.
-- Every new transaction increments the counter.
-- A higher clock value always represents a "later" event.
-- Logical clocks work offline because they do not rely on real timestamps.
+- Each device maintains an increasing counter.
+- Every new transaction increments this counter.
+- A higher lamport clock value always represents a “later” event.
+- Logical clocks work completely offline without real timestamps.
 
 ## Causal References
-- Each transaction may include references to previous transaction IDs.
-- These references show causal relationships such as "this transaction depends on the previous one."
-- Devices use causal graphs to detect missing transactions or broken chains.
+- Transactions may include references to earlier transaction IDs.
+- These references form local causal chains.
+- Devices can detect missing ancestors or incomplete sequences.
+- Helps maintain order even when receiving out-of-order data.
 
 ## Deterministic Tie-Breaker
-- If two transactions have the same lamport clock value:
-  - The transaction is chosen based on comparing device IDs alphabetically.
-  - This ensures all devices merge in the same way.
+Used when two transactions share the same lamport timestamp:
+
+1. Compare device IDs alphabetically.
+2. The transaction from the lexicographically “smaller” device ID is considered earlier.
+
+This ensures **every device merges transactions in a globally deterministic way**.
 
 ## Idempotent Application
-- Importing the same transaction multiple times does not change ledger state.
-- Devices always check if a transaction already exists before adding it.
+- Re-importing the same transaction has no effect.
+- Prevents ledger corruption when multiple neighbors broadcast the same data.
 
 ---
 
 # 3. Transaction States
 
-Seed nodes categorize transactions into the following states:
+Seed devices categorize every transaction into one of four states:
 
-- Pending: Known but not yet validated due to missing causal ancestors.
-- Valid: Fully accepted into the ledger.
-- Invalid: Violates rules such as insufficient balance or tampered signature.
-- Orphaned: Transaction references cannot be satisfied even after retries.
+- **Pending** — Transaction seen but not yet valid due to missing ancestors.
+- **Valid** — Fully accepted and applied to the ledger.
+- **Invalid** — Violates signatures, balance rules, or other validation checks.
+- **Orphaned** — Causal references cannot be recovered after repeated attempts.
 
-Pending and orphan states allow devices to sync gradually in low-connectivity environments.
+Pending and orphan states allow devices to function in unstable mesh environments.
 
 ---
 
-# 4. Conflict Scenarios and Resolution Rules
+# 4. Conflict Scenarios & Resolution Rules
 
 ## Scenario A: Same transaction ID but different content
-- This should not normally happen since tx_id is generated uniquely.
-- If it does occur:
-  - Compare lamport timestamps.
-  - Keep the version with the higher lamport value.
-  - If equal, use device ID alphabetical ordering.
-  - Reject the other version.
+Normally impossible, but if tampering or corruption occurs:
 
-## Scenario B: Two valid transactions from the same sender spending the same funds
-- Apply transactions in deterministic order:
-  - Higher lamport wins.
-  - If ties remain, use device ID ordering.
-- The losing transaction is marked invalid due to insufficient balance.
+1. Compare lamport values — higher wins.
+2. If equal, compare device IDs — alphabetical winner wins.
+3. Discard the other version.
 
-## Scenario C: Transactions arrive in different orders on different devices
-- Reorder transactions globally by:
-  - First: lamport clock
-  - Second: device ID
-- All devices eventually converge to the same sorted order.
+## Scenario B: Double-spending from the same sender
+Two transactions might spend the same funds:
 
-## Scenario D: A device is offline and creates many transactions
-- All transactions accumulate locally.
-- When the device reconnects:
-  - Its transactions merge into the global ledger based on lamport and device ID.
-  - Conflicts are resolved automatically using deterministic rules.
+- Determine global order using lamport + device ID.
+- Apply the earlier transaction.
+- The later transaction becomes **invalid** due to insufficient balance.
 
-## Scenario E: Group savings or trust-score updates collide
-- Group-based updates include a group_id and update index.
-- If two updates share the same index:
-  - The update with the higher lamport value is applied.
-  - The other becomes a shadow entry and is archived for audit.
+## Scenario C: Different arrival orders across devices
+Because devices sync in different environments:
+
+- Global ordering is recomputed using:
+  - lamport (ascending)
+  - device_id (alphabetical)
+- All devices eventually converge to the same order.
+
+## Scenario D: Device offline for long periods
+Offline device creates many local transactions:
+
+- When reconnected:
+  - Transactions merge into global ledger based on deterministic rules.
+  - No internet or coordinated clock is required.
+
+## Scenario E: Group savings or trust-score collisions
+Group-based updates carry a **group_id** and **update index**.
+
+If two updates target the same index:
+
+1. The update with higher lamport wins.
+2. The loser becomes a shadow entry (audit-only).
 
 ---
 
 # 5. Deterministic Ledger Merge Algorithm
 
-The ledger merge algorithm guarantees identical final outputs across devices.
+The deterministic merge rules guarantee identical ledgers on all Seed devices.
 
-Steps:
+### Steps:
 
-1. Collect all known transactions from both devices.
-2. Discard duplicates (same tx_id).
-3. Validate signatures and data format.
+1. Collect all known transactions (local + remote).
+2. Remove duplicates by tx_id.
+3. Validate signatures and structural format.
 4. Sort transactions by:
-   - lamport clock value (ascending)
-   - device_id (alphabetical)
-5. Apply transactions in this global order.
-6. If a transaction violates rules:
-   - Mark it invalid.
-   - Continue processing the rest.
-7. Output the final ledger state and checkpoints.
+   1. lamport clock
+   2. device ID
+5. Apply each transaction in order.
+6. If validation fails:
+   - Mark as invalid.
+7. Write updated ledger to secure storage.
+8. Share updated ledger state back to mesh when possible.
 
-This algorithm never relies on real time or arrival order.
+**No real timestamps. No central server. No internet.**
 
 ---
 
 # 6. Example Merge Case
 
-Device A transactions:
+### Device A creates:
 - A1 (lamport 1)
 - A2 (lamport 2)
 
-Device B transactions:
+### Device B creates:
 - B1 (lamport 1)
 - B2 (lamport 3)
 
-Merged order:
-1. A1 (lamport 1, device A < device B)
-2. B1 (lamport 1, device B)
-3. A2 (lamport 2)
-4. B2 (lamport 3)
+### Global sorted order:
+1. **A1** (lamport 1, device A < B)
+2. **B1** (lamport 1)
+3. **A2** (lamport 2)
+4. **B2** (lamport 3)
 
-All Seed devices will apply transactions in this exact order and produce identical results.
+Every Seed device will apply these in the exact same order.
 
 ---
 
 # 7. Data Structures Required
 
-## Transaction
+## Transaction Structure
 ```
 {
-  "tx_id": "...",
-  "sender": "...",
-  "receiver": "...",
+  "tx_id": "uuid",
+  "sender": "user_id",
+  "receiver": "user_id",
   "amount": 5.0,
   "lamport": 12,
   "device_id": "NODE_A",
   "prev_tx_ids": ["..."],
-  "signature": "..."
+  "signature": "digital_signature_here"
 }
 ```
 
-## Ledger
-- A map keyed by tx_id.
-- Stores validity state.
+## Ledger Structure
+- A map keyed by `tx_id`.
+- Stores full transaction objects.
+- Tracks validation state.
 - Supports deterministic sorting and merging.
 
 ---
 
-# 8. Sync and Reconciliation Workflow
+# 8. Sync & Reconciliation Workflow
 
 1. Device broadcasts or transfers its outbox.
-2. Other devices import incoming transactions.
-3. Devices merge transactions using deterministic rules.
-4. Devices recalculate ledger validity.
-5. Devices checkpoint new state to secure storage.
-6. Devices propagate updated ledger back to the mesh network.
+2. Receiving device imports all incoming transactions.
+3. Devices merge both datasets using global ordering.
+4. Ledger re-validates all transactions.
+5. New ledger state is saved to secure storage.
+6. Devices propagate updated state to neighbors.
 
-This loop continues until all nodes converge.
+This loop repeats until full convergence.
 
 ---
 
 # 9. Security Considerations
 
-- All transactions must be signed using per-device private keys.
-- Replay attacks prevented by:
-  - Incrementing lamport clocks
-  - Recognizing duplicate tx_ids
-- Malicious nodes cannot reorder history due to deterministic sort rules.
-- Tampered transactions fail signature validation.
+- All transactions must be cryptographically signed.
+- Replay attacks prevented via:
+  - Unique tx_ids
+  - Lamport increments
+- Malicious nodes cannot reorder history:
+  - Sorting rules are deterministic
+- Tampered transactions fail signature checks.
+- Out-of-order or delayed sync does not compromise correctness.
 
 ---
 
 # 10. Future Extensions
 
-- Vector clocks for multi-party causal chains.
-- Merkle-tree proofs for lightweight syncing.
-- Zero-knowledge validation for private transaction fields.
-- Trust-score weighted conflict resolution for group savings.
+- **Vector clocks** for richer multi-device causality.
+- **Merkle proofs** to sync only small deltas.
+- **Zero-knowledge proofs** for private transactions.
+- **Trust-score-aware conflict rules** for community-managed savings groups.
 
 ---
 
 # 11. Summary
 
-Seed's conflict resolution logic allows a global financial system to function without internet, without servers, and without synchronized clocks. By using deterministic ordering rules, lamport timestamps, and strict validation, every device in the network can independently reconstruct the same ledger, regardless of connection quality or environment.
+Seed's conflict resolution system enables a financial ledger to operate **fully offline**, **fully distributed**, and **fully deterministic**. By combining lamport logical clocks, causal references, and strict validation rules, every Seed device independently constructs the same ledger state—even under extreme network limitations.
 
-Seed remains consistent, secure, and resilient even in the most challenging conditions.
+This makes Seed reliable, tamper-resistant, and capable of scaling across millions of users without centralized infrastructure.
