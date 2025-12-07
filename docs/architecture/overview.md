@@ -1,165 +1,154 @@
 # Seed Architecture Overview
 
-Seed is an offline-first financial device designed for people without stable internet, electricity, or access to formal banking. The architecture merges resilient hardware, efficient mesh networking, a distributed ledger, local AI coaching, and strong security — all running on extremely low power.
+Seed is an offline-first financial technology platform designed for individuals without reliable access to banks, the internet, or electricity. The architecture integrates custom hardware, a resilient mesh communication layer, a distributed ledger, a lightweight AI assistant, and security-by-design principles. This document provides a high-level overview of how all major components fit together.
 
-This document provides a top-level understanding of the entire system. Other docs drill deeper into each subsystem.
+## System Goals
 
-⸻
+1. Enable secure financial transactions without internet or bank infrastructure.
+2. Allow devices to sync using peer-to-peer mesh radio communication.
+3. Maintain a consistent, tamper-resistant ledger across many devices.
+4. Provide users with accessible financial tools, education, and group savings mechanisms.
+5. Operate on extremely low power through solar charging, hand cranks, and e-ink displays.
+6. Preserve user privacy and safety, even in high-risk regions.
 
-# 1. Core Philosophy
+## Core Architecture Layers
 
-Seed’s architecture is built around three principles:
+1. Hardware Layer  
+   Includes radio, secure element, power components, display, sensors, and microcontroller.  
+   Responsible for power efficiency, durability, and device identity.
 
-## 1. Offline-First
+2. Firmware Layer  
+   Written in C. Handles device boot, radio drivers, storage, mesh sync, ledger operations, UI interactions, and security modules.
 
-Seed must operate with zero internet, sometimes for weeks.
-Transactions, savings groups, trust scoring, and identity must all work locally and autonomously.
+3. Mesh Communication Layer  
+   Responsible for connecting devices offline using LoRa-based long-range radio, message passing, routing, acknowledgements, and sync sequences.
 
-## 2. Distributed & Community-Backed
+4. Ledger Engine  
+   Validates transactions, maintains a consistent transaction history, resolves conflicts, manages group savings, and updates trust scores.
 
-Instead of relying on a bank or server, Seed devices sync with each other over a long-range, low-power mesh network (LoRa).
-This creates a community-powered financial system where economic activity can continue even during outages or in remote regions.
+5. AI Assistant Layer  
+   Provides financial coaching, scam detection, budgeting suggestions, and explains device actions locally without the internet.
 
-## 3. Ultra-Resilient Hardware
+6. Application Layer  
+   User-facing features such as wallet, payments, savings groups, trust score visualization, transaction history, tutorials, and device settings.
 
-The device must survive:
-	•	Heat
-	•	Dust
-	•	No electricity grid
-	•	Harsh environmental conditions
-	•	Long-term use by non-technical users
+7. Cloud (Optional)  
+   Only used when available for syncing global statistics, importing exchange rates, distributing firmware updates, and aiding recovery. The system fully functions without it.
 
-This informs every hardware choice (e-ink, LiFePO₄ battery, hand-crank, solar input, secure chip).
+## High-Level Flow of a Transaction
 
-⸻
+1. User selects the "Send" action on their Seed device.
+2. The device authenticates the user via fingerprint and secure element keys.
+3. A new transaction object is created and signed locally.
+4. The transaction is added to the local ledger.
+5. The radio subsystem broadcasts the update when nearby devices are reachable.
+6. Neighboring devices receive the transaction, verify its validity, and merge it into their local ledgers.
+7. Conflict resolution rules ensure that devices convergently agree on the same ledger state over time.
+8. When any device eventually connects to the internet, it can optionally sync global exchange updates or push anonymized analytics.
 
-# 2. High-Level System Architecture
+## Offline Synchronization Workflow
 
-Seed consists of five major layers, interacting like this:
+1. Devices periodically send heartbeat messages.
+2. Devices exchange short summaries of their known transactions.
+3. Any missing transactions are requested and sent in small packets.
+4. Each device compares timestamps, signatures, and hash references.
+5. Ledger merge rules ensure deterministic outcomes even if two conflicting transactions appear.
+6. Synchronization completes when both devices have the same transaction history.
 
-+--------------------------------------------------------+                                                                                      
-|                     User Applications                  |                                                                                      
-|(Wallet, Group Savings, Trust Score, Training Assistant)|                                                                                      
-+-------------------------↑------------------------------+                                                                                      
-|                Ledger Engine & State Logic             |                                                                                      
-|     (Validation, Conflict Resolution, Storage, Sync)   |                                                                                      
-+-------------------------↑------------------------------+                                                                                      
-|                Mesh Networking Stack                   |                                                                                      
-|      (LoRa Radio, Routing, Sync Messaging Formats)     |                                                                                      
-+-------------------------↑------------------------------+                                                                                      
-|                Device Services Layer                   |                                                                                      
-| (Security Chip, Fingerprint Auth, Power Mgmt, Storage) |                                                                                      
-+-------------------------↑------------------------------+                                                                                      
-|                Embedded Hardware Platform              |                                                                                      
-| (LiFePO₄ battery, solar/hand crank input, e-ink UI)    |                                                                                      
-+--------------------------------------------------------+                                                                                      
+## Power Architecture Overview
 
-Each subsystem operates independently but synchronizes through controlled APIs.
+1. Primary Power Inputs  
+   Solar panel, hand crank generator, or USB.
 
-⸻
+2. Battery  
+   Lithium iron phosphate (LiFePO4) for safety and long life.
 
-# 3. Hardware Architecture Summary
+3. Display  
+   E-ink consumes power only when updating.
 
-Hardware components include:
+4. Power Management  
+   Firmware aggressively sleeps between operations and wakes only for scheduled radio events or user interactions.
 
-## Power System
-- LiFePO₄ battery (heat safe, long lifespan)
-- Solar panel + hand crank
-- Efficient charging circuitry
-- Power-saving sleep modes
+## Data Storage Architecture
 
-## Radio System
-- LoRa transceiver (Semtech SX1276 or similar)
-- Antenna tuned for 868/915 MHz
-- Long-range, very low-power packet exchange
-- Supports mesh relays between devices
+1. Local secure storage using encrypted flash memory.  
+2. Ledger stored as append-only blocks.  
+3. Periodic snapshots reduce space consumption.  
+4. Emergency wipe mechanism that safely erases sensitive keys while leaving decoy data.
 
-## Security
-- Secure element chip (hardware keys, encryption, tamper detection)
-- Capacitive fingerprint sensor for user authentication
-- Emergency wipe mode
+## Security Architecture Overview
 
-## Display and Input
-- E-ink screen (near-zero power to maintain an image)
-- Physical buttons or a capacitive input
-- Simple UI for universal usability
+1. Fingerprint authentication for physical security.
+2. Secure element chip stores cryptographic keys.
+3. All messages signed to prevent impersonation.
+4. Transactions encrypted end-to-end across mesh hops.
+5. Ledger tamper detection via checksums and hash linking.
+6. Emergency decoy mode for life-threatening situations.
 
-⸻
+## Device Identity Architecture
 
-# 4. Software Architecture Summary
+1. Every device has a unique cryptographic identity.  
+2. Keys generated inside the secure element at manufacturing.  
+3. Identity used for signatures, trust scores, and sync permissions.
 
-## 4.1 Ledger Engine
-- Validates transactions
-- Maintains local ledger state
-- Applies conflict resolution rules (Lamport clocks + device ID tiebreaker)
-- Stores history efficiently
-- Generates updates for sync messages
+## AI Assistant Architecture
 
-## 4.2 Mesh Sync Protocol
-- Defines message formats (transaction, heartbeat, ledger summary)
-- Manages retries, acknowledgments, deduplication
-- Performs offline-first sync when two devices meet
-- Relays messages across many hops when needed
+1. Runs on-device, offline, using small curated models.  
+2. Learns from the user’s spending patterns and habits.  
+3. Helps explain transactions, detect scams, and guide saving.  
+4. Provides multi-language support powered by curated embeddings.
 
-## 4.3 Security Layer
-- Device identity and key management
-- Message signing + verification
-- Data encryption at rest
-- Protection from replay attacks
+## Group Savings Architecture (ROSCA Model)
 
-## 4.4 Applications Layer
+1. Users form a savings group with local devices.  
+2. Each device tracks contribution cycles.  
+3. Ledger ensures transparent and fair rotation.  
+4. Offline sync ensures all devices share the same group state.  
+5. Trust scores update based on contributions and reliability.
 
-Each app is a module using the ledger engine:
-- Wallet App – send money, receive money
-- Group Savings App – rotating savings & loan functionality
-- Trust Score App – reputation tracking
-- Training Assistant AI – personalized financial coaching
-- Settings App – security + device options
+## End-to-End Data Flow Summary
 
-⸻
+1. User action triggers device interface.  
+2. Firmware validates and signs the action using secure keys.  
+3. Ledger engine records and stores the event.  
+4. Mesh radio advertises pending transactions.  
+5. Peers exchange digests, compare ledgers, and request missing entries.  
+6. Unified ledger grows consistently across the network.  
+7. AI assistant analyzes patterns and offers guidance.  
+8. Optional cloud connection provides long-term benefits but is not required.
 
-# 5. How Data Flows Through Seed
+## Architecture Diagram (Text Version)
 
-A typical transaction goes through these steps:
-	1.	User initiates a payment or savings action.
-	2.	Device validates it using local ledger rules.
-	3.	Transaction is written to local storage.
-	4.	When devices come near each other:
-  - Sync negotiation occurs
-  - Missing transactions are exchanged
-  - Conflicts are resolved deterministically
-	5.	Device updates trust scores and savings group status accordingly.
-	6.	E-ink screen shows confirmation using minimal power.
+      +------------------------------------------------------+
+      |                     Application Layer                 |
+      |  Wallet | Group Savings | Trust Score | Training App |
+      +------------------------------------------------------+
+                           ↓
+      +------------------------------------------------------+
+      |                       AI Layer                       |
+      |  Local Model | Pattern Detection | Scam Warnings     |
+      +------------------------------------------------------+
+                           ↓
+      +------------------------------------------------------+
+      |                    Ledger Engine                      |
+      | Validation | Conflict Resolution | Storage | Sync     |
+      +------------------------------------------------------+
+                           ↓
+      +------------------------------------------------------+
+      |                Mesh Communication Layer               |
+      | LoRa Radio | Message Queue | Routing | Acknowledgment |
+      +------------------------------------------------------+
+                           ↓
+      +------------------------------------------------------+
+      |                       Firmware                        |
+      | Drivers | Power Mgmt | Secure Boot | UI | Scheduler   |
+      +------------------------------------------------------+
+                           ↓
+      +------------------------------------------------------+
+      |                     Hardware Layer                    |
+      | MCU | Secure Element | LoRa Chip | E-Ink | Battery    |
+      +------------------------------------------------------+
 
-Even in a village with no internet, the economic network stays alive.
+## Summary
 
-⸻
-
-# 6. Why This Architecture Works
-
-## 1. It requires zero central servers.
-Perfect for areas with unstable or nonexistent infrastructure.
-
-## 2. It scales organically as more devices join.
-Mesh spreads naturally — like “financial Wi-Fi” powered by people.
-
-## 3. It builds financial identity and stability.
-Seed forms a bridge from informal economic life → formal financial mobility.
-
-## 4. It is resilient enough for disaster response, farming regions, refugee camps, or rural areas.
-
-⸻
-
-# 7. Relationship to Full Project Roadmap
-
-This document is the top of the architecture tree.
-Other documents expand it:
-- device_components.md breaks down each hardware subsystem.
-- software_stack.md explains every layer in the code.
-- backup_sync_logic.md details how devices recover after failure.
-- risk_model.md covers threats and mitigations.
-- data_flow.md provides diagrams for technical clarity.
-
-Together these documents form the backbone of the Seed Engineering Specification.
-
-
+This architecture allows Seed to operate as a reliable, offline-first financial system capable of scaling across rural regions, humanitarian settings, refugee camps, and low-income communities. It combines novel hardware, distributed systems principles, and practical financial tools in a way that is accessible, affordable, and secure.
