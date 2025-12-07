@@ -1,216 +1,179 @@
 # Seed Architecture: End-to-End Data Flow
 
-This document describes how data moves through the Seed ecosystem across hardware, firmware, mesh networking, ledger logic, user interaction, and optional cloud sync. It traces the full life cycle of actions such as creating a transaction, recording it locally, sharing it via mesh, resolving conflicts, updating trust scores, and maintaining long-term system coherence in extremely low-connectivity environments.
+## Overview
+This document describes how data moves through the Seed ecosystem, from user actions on the device to ledger updates, mesh network propagation, conflict resolution, and secure long-term storage. It is designed to show how every subsystem interacts, including hardware, firmware, networking, ledger logic, synchronization, and external interfaces such as optional cloud gateways.
 
----
+## High-Level Pipeline
+- User input
+- Application layer processing
+- Ledger engine validation and state update
+- Transaction serialization
+- Mesh network broadcast (LoRa + mesh protocol)
+- Neighbor reception and local merge
+- Conflict resolution
+- Secure storage and checkpointing
+- Optional cloud sync (when internet is available)
+- Local AI assistant updates (trust score, savings coach, recommendations)
 
-# 1. Overview of the Seed Data Model
+## Step 1: User Creates an Action
+### Examples
+- Send money
+- Request money
+- Contribute to group savings
+- Withdraw weekly group savings pot
+- Check balance
+- Display transaction history
+- Ask AI assistant a question
 
-Seed handles several core data types:
+### Data produced at this step
+- sender_id
+- recipient_id (optional for read-only operations)
+- amount
+- transaction_type
+- user authentication (fingerprint)
+- timestamp (device-local)
+- any relevant metadata
 
-- Transactions (money transfers, group savings deposits, loan withdrawals)
-- Ledger states (local record of all accepted transactions)
-- Device identity (public key, fingerprint hash)
-- Trust score data (behavior-based rating)
-- Group membership metadata
-- User profile settings
-- System status metrics (battery, storage, sync history)
+## Step 2: Application Layer Interprets the Action
+- Verifies fingerprint authentication
+- Checks local device configuration
+- Loads user profile and trust score
+- Collects required transaction fields
+- Prepares a request object for the ledger engine
 
-These pieces of data must flow reliably across devices without internet, while remaining secure, tamper-resistant, and recoverable.
+### Data transformations
+- Convert user intent into a structured transaction request
+- Validate basic fields (amount > 0, known recipient, etc.)
 
----
+## Step 3: Ledger Engine Builds the Transaction
+- Assigns a unique transaction ID
+- Increments Lamport clock
+- Captures dependencies (previous transaction IDs)
+- Runs validation rules
+- Signs transaction using secure element
 
-# 2. End-to-End Transaction Flow (Single Device)
+### Output structure
+- tx_id
+- from_id
+- to_id
+- amount
+- lamport_clock
+- dependencies
+- signature
+- device_id
 
-This section outlines what happens inside *one Seed device* when a user performs an action.
+## Step 4: Serialize and Prepare for Transport
+- Converts structured transaction into JSON or compact binary format
+- Attaches small header block with message type indicators
+- Compresses if needed
 
-## 2.1 User Input Stage
-- User interacts with the e-ink interface.
-- UI code sends input events to the application layer.
-- Application layer validates the request (e.g., sufficient balance).
+### Message fields
+- message_type (transaction, sync_request, sync_response, heartbeat, error)
+- payload (transaction JSON)
+- checksum (CRC16 or similar)
 
-## 2.2 Transaction Construction
-- Firmware assembles a transaction object containing:
-  - Sender ID
-  - Receiver ID
-  - Amount
-  - Local timestamp
-  - Lamport clock value
-  - Previous known ledger reference
-  - Digital signature from secure element
-- This object is serialized into Seed's JSON or compact binary format.
+## Step 5: Mesh Protocol Sends Transaction Over Radio
+- Chooses frequency band based on region (e.g., 915 MHz US)
+- Uses LoRa modulation for long-range low-power messaging
+- Selects routing strategy (gossip flood, neighborhood table, power-aware routing)
+- Transmits packet with retry logic
 
-## 2.3 Local Storage
-- The transaction is appended to:
-  - The local ledger file
-  - A pending-sync queue
-- A checkpoint is saved so recovery is possible even after device loss or battery drain.
+### Radio-layer behavior
+- Radio interface encodes and transmits packet
+- Performs backoff to reduce collisions
+- Logs packet for debugging
 
----
+## Step 6: Neighbor Devices Receive Message
+### Upon reception:
+- Validate checksum
+- Validate signature
+- Validate not seen before (deduplication)
+- Add to local ledger merge queue
+- Update neighbor table (for routing optimization)
+- Pass payload into ledger engine
 
-# 3. Mesh Sync Flow (Device-to-Device Data Movement)
+### If invalid:
+- Drop packet
+- Optionally send error message
 
-This section covers how data travels between two Seed devices using LoRa mesh.
+## Step 7: Ledger Merge and Conflict Resolution
+- Compares received transaction’s Lamport timestamp with local version
+- If newer: overwrite
+- If same timestamp: break ties using deterministic rule based on device_id
+- If conflicts detected (e.g., double spend): queue for dispute resolution
+- Update local state: balances, trust score inputs, group savings state
 
-## 3.1 Neighbor Discovery
-- Device broadcasts a low-power beacon.
-- Other devices reply with short identity frames.
-- A neighbor table is updated.
+### Merge logic ensures:
+- Consistency across devices
+- Deterministic ordering
+- No central authority required
+- Offline-first behavior
 
-## 3.2 Transaction Advertisement
-- Device announces:
-  - Latest ledger hash (rolling checksum)
-  - Count of pending transactions
-  - Optional trust-score changes
+## Step 8: Local Storage and Checkpointing
+- Append new transaction to encrypted storage
+- Update state database on flash memory
+- Trigger periodic checkpoint:
+  - Summaries of balances
+  - Group savings pot state
+  - Trust score snapshot
+  - Last merged lamport timestamp
 
-## 3.3 Selective Sync
-When Device A meets Device B:
+### Backup goals
+- Allow recovery after device loss or tampering
+- Reduce storage size over long periods
+- Improve sync speed between devices
 
-1. They compare ledger hashes.
-2. Each device requests only missing transactions.
-3. Requested transactions are sent in compact batches.
-4. Devices confirm receipt and update local state.
+## Step 9: Optional Internet Sync (when available)
+If the device is near WiFi:
+- Upload ledger diffs through mesh gateway
+- Receive global ledger state
+- Merge again using same deterministic rules
+- Distribute global updates back through mesh when offline
 
-## 3.4 Conflict Resolution
-- If two different versions of a transaction exist:
-  - Lamport timestamp is compared.
-  - If equal, deterministic tie-break rules are applied.
-- Final accepted version is stored on both devices.
+This creates:
+- A global economic view
+- Cross-region stability
+- Support for diaspora remittances
 
-## 3.5 Trust Score Update Flow
-Trust-score updates follow the same sync flow:
-- Local calculation → signed update packet → mesh advertisement → sync → merge.
+## Step 10: AI Assistant Updates Insights
+- Reads new financial behavior
+- Updates personalization model
+- Recalculates trust-score components
+- Generates educational prompts, warnings, or suggestions
 
----
+Examples:
+- "Your savings streak is 4 weeks long."
+- "This sender has a low trust score. Confirm transaction?"
+- "Your group savings pot will reach 200 units next cycle."
 
-# 4. Group Savings Data Flow
+## Step 11: Device UI Refresh
+- E-ink display updates with extremely low power usage
+- Shows new balance, confirmation, or errors
+- Logs action to activity view
+- Stays static without draining battery
 
-Group savings involves multiple devices contributing to the same shared pot.
+## Complete End-to-End Example Scenario
+### User action
+Alice sends 5 units to Bob.
 
-## 4.1 Contribution Event
-- User selects contribution amount.
-- Transaction is created with a group identifier.
+### Data flow
+- Fingerprint verifies user
+- Application builds request object
+- Ledger engine validates and constructs transaction
+- Transaction serialized into JSON message
+- Mesh protocol wraps message and transmits via LoRa
+- Nearby devices receive and validate
+- Ledger merge resolves any conflicts
+- State updates and is stored securely
+- If online, global sync occurs
+- AI updates Alice’s trust score and spending pattern analysis
+- E-ink screen displays confirmation
 
-## 4.2 Rotation / Payout Request
-- A designated user requests funds through the UI.
-- Device creates a signed payout transaction.
-- Group rules are validated locally before allowing the request.
-
-## 4.3 Multi-Party Acknowledgement
-- Devices exchange acknowledgment signatures.
-- Only once minimum threshold is reached, the payout becomes valid.
-
-## 4.4 Sync Across the Group Mesh
-- All group devices share the update when they next come in contact.
-- Missing signatures or contradictory states are resolved via quorum logic.
-
----
-
-# 5. Backup and Recovery Data Flow (Offline-First)
-
-Seed devices may encounter power loss, theft, environmental damage, or extended isolation.
-
-## 5.1 Local Backup
-- Device periodically writes:
-  - Ledger snapshot
-  - Transaction log
-  - Device identity
-  - Trust score history
-- Data is encrypted at rest.
-
-## 5.2 Device Replacement Flow
-- New Seed device imports:
-  - Identity keys (if backup exists)
-  - Last ledger snapshot
-- Mesh sync fills gaps by comparing hashes and requesting missing transactions.
-
-## 5.3 Emergency Wipe Path
-- Forced fingerprint triggers:
-  - Display of fake/decoy data
-  - Optional destruction of sensitive keys
-  - Redirection to a locked state until reset protocol
-
----
-
-# 6. Optional Internet Gateway Sync Flow
-
-When any Seed device briefly encounters internet, it can:
-
-## 6.1 Uplink Flow
-- Upload a compressed ledger delta to a Seed gateway node.
-- Gateway:
-  - Validates signatures
-  - Stores global state
-  - Makes anonymized statistics available
-
-## 6.2 Downlink Flow
-- Gateway provides:
-  - Missing ledger updates
-  - Firmware update metadata
-  - Global trust-score rules
-  - Educational content for the AI assistant
-
-## 6.3 Privacy Model
-- No personal data is uploaded.
-- Transactions are encrypted end-to-end.
-- Only anonymous aggregates go to the gateway.
-
----
-
-# 7. Full System Data Life Cycle Summary
-
-1. User performs an action on device.
-2. Device builds a signed transaction.
-3. Transaction is stored locally.
-4. Pending transactions propagate through the mesh.
-5. Conflicts are resolved deterministically.
-6. Ledger converges across devices.
-7. Trust scores update based on actions.
-8. Group savings events propagate through multi-party sync.
-9. Periodic backup ensures durability.
-10. Optional gateway connections improve global coherence.
-
----
-
-# 8. High-Level Sequence Diagram (Conceptual)
-
-User → Device UI
-Device UI → App Layer
-App Layer → Ledger Engine
-Ledger Engine → Secure Element (sign)
-Secure Element → Ledger Engine (signature)
-Ledger Engine → Local Storage (append tx)
-Local Storage → Mesh Layer (pending queue)
-Mesh Layer → Neighbor Discovery
-Mesh Layer ↔ Other Devices (tx exchange)
-Ledger Engine ↔ Mesh Layer (merge + resolve)
-Ledger Engine → Local Storage (commit)
-Local Storage → Backup Module (snapshot)
-Optional: Mesh Layer → Internet Gateway
-
----
-
-# 9. Why This Data Flow Matters
-
-This architecture ensures that Seed can function under extreme constraints:
-
-- No internet required
-- No phone required
-- No electricity grid required
-- Works in refugee camps, rural villages, disaster zones, informal settlements, and areas with collapsed institutions
-- Ledger remains consistent even when devices are offline for months
-- Trust score and group savings mechanisms operate reliably
-- Security is maintained with local verification, signatures, and tamper resistance
-
----
-
-# 10. Future Extensions
-
-- Multi-hop routing optimization
-- Incentive mechanisms for relaying messages
-- Regional frequency adaptation
-- Formal verification of ledger merge logic
-- Secure multi-party computation for shared pots
-- Optional interoperability with digital cash systems
-
----
+## Summary of Data Flow Principles
+- Offline-first by design
+- Deterministic consensus without a blockchain
+- Local-first economic computation
+- Minimal-power data movement
+- Self-healing network through mesh propagation
+- Privacy-preserving identity and encryption
+- Scalable across millions of devices
