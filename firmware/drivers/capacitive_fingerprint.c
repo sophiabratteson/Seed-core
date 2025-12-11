@@ -1,23 +1,3 @@
-#ifndef CAPACITIVE_FINGERPRINT_H
-#define CAPACITIVE_FINGERPRINT_H
-
-#include <stdint.h>
-#include <stdbool.h>
-
-#define FP_MATCH_THRESHOLD 70    // Minimum acceptance score (0–100)
-
-bool FP_Init(void);
-
-bool FP_Enroll(uint8_t *out_encrypted_template,
-               uint16_t *out_size);
-
-bool FP_Authenticate(const uint8_t *reference_encrypted_template,
-                     uint16_t ref_size);
-
-uint8_t FP_GetLastMatchScore(void);
-
-#endif
-
 /**
  * capacitive_fingerprint.c
  * -----------------------------------------
