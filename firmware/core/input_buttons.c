@@ -1,28 +1,3 @@
-#ifndef INPUT_BUTTONS_H
-#define INPUT_BUTTONS_H
-
-#include <stdint.h>
-#include <stdbool.h>
-
-typedef enum {
-    BUTTON_UP,
-    BUTTON_DOWN,
-    BUTTON_SELECT,
-    BUTTON_BACK
-} button_id_t;
-
-typedef enum {
-    BUTTON_SHORT_PRESS,
-    BUTTON_LONG_PRESS
-} button_event_type_t;
-
-typedef void (*button_event_callback_t)(button_id_t id, button_event_type_t type);
-
-void buttons_init(button_event_callback_t cb);
-void buttons_update(void);
-bool buttons_check_wake_event(void);
-
-#endif
 /**
  * input_buttons.c
  *
