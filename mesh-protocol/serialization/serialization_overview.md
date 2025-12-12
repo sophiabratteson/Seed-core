@@ -1,247 +1,218 @@
-Serialization Overview — Seed Mesh Protocol
+# Serialization Overview
 
-This document defines how data is encoded, compressed, validated, and transmitted across the Seed mesh network. Serialization ensures that all Seed devices—regardless of hardware constraints, firmware version, or connection quality—can exchange ledger data, messages, and system signals efficiently, securely, and deterministically.
+This document defines how Seed serializes, compresses, and transmits data across the mesh network. Because Seed operates in low-bandwidth, offline, and energy-constrained environments, serialization is a critical component of system performance, reliability, and security.
 
-Seed is designed for extremely low-bandwidth, high-latency, and intermittently connected environments. Serialization choices prioritize compactness, integrity, forward compatibility, and offline-first reliability.
+Serialization ensures that all devices interpret transmitted data identically, regardless of hardware, firmware version, or message arrival order.
 
---------------------------------------------------
-1. Goals of Serialization
---------------------------------------------------
+---
 
-The serialization layer must:
+## Goals of Serialization
 
-- Minimize payload size to conserve radio airtime and power
-- Support fully offline operation with delayed delivery
-- Preserve deterministic interpretation across devices
-- Allow partial message transfer and recovery
-- Enable schema evolution without breaking older devices
-- Prevent malformed or malicious payloads from affecting system integrity
+- Minimize packet size to conserve bandwidth and power
+- Ensure deterministic interpretation across devices
+- Support offline-first operation with delayed delivery
+- Enable forward compatibility with future protocol versions
+- Allow graceful degradation on low-capability hardware
+- Preserve security and data integrity during transmission
 
---------------------------------------------------
-2. Serialization Layers
---------------------------------------------------
+---
+
+## Design Principles
+
+- Compact over verbose
+- Deterministic over flexible
+- Explicit over implicit
+- Backward-compatible wherever possible
+- Failure-tolerant and recoverable
+- Versioned at every layer
+
+---
+
+## Serialization Layers
 
 Seed uses a layered serialization approach:
 
-1. Logical Data Model
-   - Transactions, ledger entries, sync metadata, system messages
+1. Application Data Layer
+2. Protocol Message Layer
+3. Transport Packet Layer
+4. Radio Frame Layer
 
-2. Canonical Encoding Format
-   - Defines how fields are ordered and represented
+Each layer adds structure without duplicating data.
 
-3. Compression Layer (Optional)
-   - Reduces payload size when beneficial
+---
 
-4. Integrity Layer
-   - Adds checksums or hashes
+## Supported Serialization Formats
 
-5. Transport Framing
-   - Prepares serialized payload for LoRa mesh transmission
+Seed supports multiple serialization formats depending on device capability and network conditions.
 
-Each layer is independently testable and replaceable.
+### Primary Format: Compact JSON
 
---------------------------------------------------
-3. Canonical Data Representation
---------------------------------------------------
-
-All Seed data structures are defined using canonical schemas:
-
-- Field order is fixed
-- Field types are strictly defined
-- Optional fields must be explicitly marked
-- Default values are never assumed implicitly
-
-This ensures:
-
-- Two devices serializing the same logical data produce identical byte streams
-- Deterministic hashing and signing
-- Consistent conflict resolution
-
---------------------------------------------------
-4. Supported Serialization Formats
---------------------------------------------------
-
-Seed supports multiple serialization formats depending on context.
-
-Primary Format: Compact JSON
-
-- Human-readable
-- Easy to debug during prototyping
-- Compatible with constrained parsers
-- Used for:
-  - Transactions
-  - Ledger sync messages
-  - Trust score updates
-  - Group savings updates
-
-Secondary Format: Binary Encoding (Future)
-
-- Field-indexed binary layout
-- Reduces payload size by 40–70%
-- Used for:
-  - High-density ledger sync
-  - Large group states
-  - Future production firmware
-
-Devices negotiate supported formats during handshake.
-
---------------------------------------------------
-5. JSON Serialization Rules
---------------------------------------------------
-
-JSON messages must follow these rules:
-
-- UTF-8 encoding only
-- No whitespace outside string values
-- Keys sorted alphabetically
-- Numbers encoded as integers where possible
-- Floats limited to fixed precision
-- No null values (fields omitted instead)
-
-Example (Canonical JSON):
-
-{
-  "amount": 5,
-  "device_id": "NODE_A",
-  "lamport": 12,
-  "receiver": "bob",
-  "sender": "alice",
-  "tx_id": "abc123"
-}
-
---------------------------------------------------
-6. Binary Serialization (Planned)
---------------------------------------------------
-
-Binary encoding uses:
-
-- Field index mapping
-- Variable-length integers
-- Packed bitfields for flags
-- Length-prefixed strings
-- Deterministic field ordering
+Used for:
+- Prototyping
+- Debugging
+- Two-laptop demo
+- Early field pilots
 
 Advantages:
+- Human-readable
+- Easy to debug
+- Widely supported
 
-- Smaller payloads
-- Faster parsing
-- Lower power consumption
+Disadvantages:
+- Larger payload size
+- Higher parsing cost
 
-Binary serialization will always map directly to canonical schemas to preserve compatibility.
+---
 
---------------------------------------------------
-7. Compression Strategy
---------------------------------------------------
+### Secondary Format: Binary Compact Encoding
 
-Compression is optional and context-aware.
+Used for:
+- Production devices
+- High-density mesh environments
+- Low-power operation
 
-Compression is applied only when:
+Characteristics:
+- Fixed-length fields where possible
+- Integer-based enums
+- Compact type identifiers
+- Minimal delimiters
 
-- Payload exceeds a defined threshold
-- Power budget allows
-- Device is not in low-power emergency mode
+Binary encoding is deterministic and faster to parse on embedded devices.
 
-Supported strategies:
+---
 
-- Lightweight dictionary compression
-- Field repetition elimination
-- Numeric delta encoding
+## Message Envelope Structure
 
-Compression headers include:
+All serialized messages share a common envelope:
 
-- Compression type
-- Original length
-- Checksum of compressed data
+- protocol_version
+- message_type
+- sender_device_id
+- lamport_clock
+- payload_length
+- payload
+- checksum
 
---------------------------------------------------
-8. Integrity and Validation
---------------------------------------------------
+This envelope allows devices to:
+- Reject unsupported versions
+- Route messages correctly
+- Detect corruption
+- Reorder messages deterministically
 
-Every serialized payload includes integrity protection:
+---
 
-- CRC or checksum for transmission errors
-- Hash for content verification
-- Optional digital signature for authenticated messages
+## Protocol Versioning
 
-Validation steps:
+- Every serialized message includes a protocol_version field
+- Devices reject messages with incompatible major versions
+- Minor version differences allow backward-compatible parsing
+- Version negotiation occurs implicitly through message exchange
 
-1. Frame integrity check
-2. Decompression (if applicable)
-3. Schema validation
-4. Signature verification
-5. Replay detection
+---
 
-Invalid messages are discarded safely.
+## Payload Serialization Rules
 
---------------------------------------------------
-9. Versioning and Forward Compatibility
---------------------------------------------------
+- All numeric values use fixed-width integers where possible
+- Floating point values are avoided unless necessary
+- Strings are UTF-8 encoded
+- Optional fields must be explicitly marked
+- Missing fields default to safe null values
 
-Each serialized payload includes:
+---
 
-- Protocol version
-- Schema version
-- Optional feature flags
+## Transaction Serialization
 
-Rules:
+Transactions are serialized with:
 
-- Older devices ignore unknown fields
-- Newer devices support legacy schemas
-- Breaking changes require explicit version bump
-- Devices refuse payloads beyond supported versions
+- Unique transaction ID
+- Sender ID
+- Receiver ID
+- Amount
+- Lamport timestamp
+- Causal references
+- Signature
 
---------------------------------------------------
-10. Partial Transfers and Recovery
---------------------------------------------------
+Field order is fixed to ensure deterministic hashing and signing.
 
-Seed supports fragmented payloads:
+---
 
-- Large messages split into chunks
-- Each chunk independently verifiable
-- Missing chunks can be re-requested
-- Ledger sync resumes from last confirmed offset
+## Ledger Sync Serialization
 
-This enables:
+Ledger synchronization messages may include:
 
-- Reliable transfer over noisy links
-- Resume after power loss
-- Efficient bandwidth use
+- Full transaction sets
+- Partial diffs
+- Bloom filters or summaries
+- Checkpoint hashes
 
---------------------------------------------------
-11. Security Considerations
---------------------------------------------------
+Devices select the smallest valid sync format available.
 
-Serialization is hardened against:
+---
 
-- Buffer overflows
-- Malformed field injection
-- Schema confusion attacks
-- Replay and downgrade attacks
+## Compression Strategy
 
-Mitigations include:
+Seed applies compression only when beneficial.
 
-- Strict parsers
-- Fixed memory limits
-- Canonical ordering
-- Signed critical payloads
+- Small payloads are sent uncompressed
+- Large payloads use lightweight compression
+- Compression algorithms are deterministic
+- Compression metadata is included in the envelope
 
---------------------------------------------------
-12. Relationship to Other Layers
---------------------------------------------------
+---
 
-Serialization directly supports:
+## Integrity and Validation
 
-- Ledger engine consistency
-- Conflict resolution determinism
-- Mesh routing reliability
-- Power-aware radio usage
-- Secure offline financial operation
+- Every serialized message includes a checksum
+- Critical messages include cryptographic signatures
+- Invalid or corrupted messages are discarded
+- Replay attempts are detected via Lamport clocks
 
-It is a foundational layer upon which all Seed communication depends.
+---
 
---------------------------------------------------
-13. Summary
---------------------------------------------------
+## Error Handling
 
-Serialization in Seed is not just a data format—it is a reliability, security, and scalability mechanism. By enforcing canonical encoding, supporting offline-first constraints, and enabling forward-compatible evolution, Seed ensures that financial data can move safely and consistently across a decentralized, infrastructure-light global network.
-```
+If a device cannot parse a serialized message:
+
+- The message is discarded
+- An error_report_message may be sent
+- The device continues operating without interruption
+- No global failure occurs
+
+---
+
+## Forward Compatibility
+
+Serialization design allows:
+
+- New message types without breaking older devices
+- Optional fields for future extensions
+- Graceful fallback to known fields only
+- Progressive feature rollout
+
+---
+
+## Example Serialized Flow
+
+1. Device creates a transaction
+2. Transaction is serialized into payload
+3. Envelope is added
+4. Payload is compressed if needed
+5. Checksum is calculated
+6. Packet is transmitted over radio
+7. Receiver validates and deserializes
+8. Transaction enters reconciliation pipeline
+
+---
+
+## Security Considerations
+
+- Serialization order is deterministic to prevent signature ambiguity
+- Sensitive fields are encrypted before serialization
+- No private keys are ever serialized
+- Metadata leakage is minimized
+
+---
+
+## Summary
+
+Serialization is the backbone of Seed’s offline-first mesh protocol. By prioritizing compactness, determinism, and resilience, Seed ensures that financial data can move reliably across disconnected environments while preserving consistency, security, and future extensibility.
