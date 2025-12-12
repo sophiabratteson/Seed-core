@@ -1,232 +1,216 @@
 # Monitoring Overview
 
-This document defines how Seed monitors device health, network integrity, and system performance in environments with limited or no internet connectivity. Monitoring is designed to be offline-first, privacy-preserving, and resilient, while still enabling operators to detect failures, abuse, or degradation across deployments.
+This document defines how Seed devices and the Seed network are monitored in a fully offline-first, decentralized environment. Because Seed does not rely on constant internet connectivity or centralized servers, monitoring focuses on local device health, delayed synchronization metrics, and eventual network visibility when connectivity becomes available.
 
-Seed does not rely on centralized, real-time dashboards. Instead, monitoring data is collected locally, summarized on-device, and propagated opportunistically through the mesh network or during periodic gateway sync events.
-
----
-
-## 1. Monitoring Goals
-
-The monitoring system is designed to achieve the following objectives:
-
-- Detect hardware failures before they cause user data loss
-- Identify degraded network performance or mesh fragmentation
-- Track power health to prevent unexpected device shutdowns
-- Surface security anomalies or suspicious behavior
-- Enable post-hoc analysis without continuous connectivity
-- Preserve user privacy and financial confidentiality
-- Operate reliably in low-power, low-bandwidth environments
+Monitoring is designed to be:
+- Offline-capable
+- Privacy-preserving
+- Low-power
+- Resilient to long disconnection periods
 
 ---
 
-## 2. Monitoring Philosophy
+## 1. Goals of Monitoring
 
-Seed monitoring follows these principles:
-
-- Offline-first: All monitoring works without internet access
-- Local-first: Devices self-monitor and log their own health
-- Event-driven: Logs are triggered by state changes, not constant polling
-- Minimal data: Only operational metadata is collected
-- Mesh-propagated: Summaries move through the mesh opportunistically
-- Human-readable: Logs can be reviewed locally by operators
-- Fail-safe: Monitoring failure never blocks financial operations
+- Detect device health issues before failure
+- Identify synchronization problems in the mesh network
+- Track power usage and battery degradation
+- Enable safe recovery and maintenance actions
+- Provide operators with delayed but accurate insights
+- Avoid creating centralized surveillance risks
 
 ---
 
-## 3. Monitoring Layers
+## 2. Monitoring Architecture
 
-Monitoring occurs at multiple layers of the Seed system.
+Seed monitoring operates across three layers:
 
-### Device Layer
-Tracks the physical health of each Seed device.
+### Device-Level Monitoring
+Runs entirely on-device and requires no network connection.
 
-### Firmware Layer
-Tracks internal software behavior and error states.
+Monitors:
+- Battery voltage and charge cycles
+- Storage integrity
+- Ledger consistency state
+- Radio transmission success/failure rates
+- Sensor health (fingerprint, buttons, display)
+- Internal error flags
 
-### Ledger Layer
-Tracks ledger integrity and synchronization status.
+### Local Network Monitoring
+Occurs opportunistically when Seed devices encounter each other.
 
-### Mesh Network Layer
-Tracks connectivity and message propagation.
-
-### Operational Layer
-Tracks deployment-wide patterns and risks.
-
-Each layer generates its own monitoring signals.
-
----
-
-## 4. Device Health Metrics
-
-Each device continuously monitors the following parameters:
-
-- Battery voltage and charge state
-- Charge source availability (solar, hand crank)
-- Temperature thresholds
-- Power consumption rate
-- Unexpected power resets
-- Secure element availability
-- Peripheral sensor availability (fingerprint, buttons, display)
-
-Metrics are logged locally and summarized periodically.
-
-Critical thresholds trigger immediate alerts.
-
----
-
-## 5. Firmware and Software Monitoring
-
-The firmware records:
-
-- Boot cycles and crash counts
-- Watchdog resets
-- Memory usage and allocation failures
-- Flash write errors
-- Firmware version and checksum
-- Update success or rollback events
-
-Error states are categorized by severity:
-
-- Informational
-- Warning
-- Critical
-- Fatal
-
-Fatal errors trigger safe-mode behavior.
-
----
-
-## 6. Ledger Integrity Monitoring
-
-Ledger monitoring ensures financial correctness without revealing balances or identities.
-
-Tracked indicators include:
-
-- Ledger checkpoint frequency
-- Validation failures
+Monitors:
+- Peer discovery success rates
+- Sync completion status
 - Conflict resolution frequency
-- Orphaned transaction counts
-- Replay attempt detection
-- Signature verification failures
+- Packet loss estimates
+- Mesh neighbor churn
 
-Only metadata is logged. No transaction amounts or identities are exposed.
+### Deferred Global Monitoring
+Occurs only when a Seed device reaches a gateway or trusted uplink.
 
----
-
-## 7. Mesh Network Monitoring
-
-Mesh-related metrics include:
-
-- Neighbor count
-- Link stability duration
-- Packet loss rate (estimated)
-- Message retry counts
-- Gossip propagation latency
-- Network partition detection
-
-Devices generate periodic mesh summaries that can be exchanged during sync events.
+Monitors:
+- Aggregated anonymized health metrics
+- Firmware version distribution
+- Regional failure patterns
+- Field performance trends
 
 ---
 
-## 8. Monitoring Data Storage
+## 3. Device Health Metrics
 
-Monitoring data is stored locally using a ring-buffer model:
+Each Seed device maintains a local health record including:
 
-- Fixed-size storage to prevent flash exhaustion
-- Oldest records overwritten first
-- Critical events are pinned until acknowledged
-- Logs are cryptographically signed
+- Battery level (%)
+- Battery cycle count
+- Average daily power consumption
+- Flash storage usage (%)
+- Ledger size and checkpoint count
+- Error counters by category
+- Last successful sync timestamp (logical, not wall-clock)
 
-Storage is encrypted at rest using device keys.
-
----
-
-## 9. Monitoring Data Propagation
-
-Monitoring data moves through the system in three ways:
-
-1. Local review on the device
-2. Opportunistic mesh propagation (summaries only)
-3. Gateway sync during maintenance or audits
-
-Raw logs never broadcast automatically.
+Health data is stored locally and summarized for export.
 
 ---
 
-## 10. Alerts and Escalation
+## 4. Power and Battery Monitoring
 
-Devices trigger alerts under the following conditions:
+Power monitoring is critical due to off-grid operation.
 
-- Repeated failed boots
-- Critical power degradation
-- Secure element failure
-- Ledger corruption detection
-- Suspected tampering
-- Persistent mesh isolation
+Tracked metrics:
+- Voltage under load
+- Charge input source (solar, hand-crank, external)
+- Time spent in sleep vs active states
+- Display refresh count
+- Radio duty cycle
 
-Alerts are displayed locally and flagged for operator review during sync.
-
----
-
-## 11. Operator Access Model
-
-Monitoring access is role-based:
-
-- End users see only device health indicators
-- Field operators see operational summaries
-- Administrators see aggregated anonymized metrics
-- Auditors see signed historical logs
-
-Access never exposes financial transaction data.
+These metrics inform:
+- Power budgeting
+- User guidance
+- Hardware revision decisions
 
 ---
 
-## 12. Abuse and Anomaly Detection
+## 5. Ledger and Sync Monitoring
 
-Monitoring supports detection of:
+Seed tracks synchronization quality without centralized control.
 
-- Abnormally high transaction rejection rates
-- Repeated replay attempts
-- Suspicious trust score manipulation
-- Malicious firmware downgrade attempts
-- Coordinated mesh flooding behavior
+Metrics include:
+- Number of pending transactions
+- Number of orphaned transactions
+- Conflict resolution events
+- Time-to-convergence estimates
+- Sync attempts vs successes
 
-Detected anomalies are flagged for investigation but do not halt normal operation automatically.
-
----
-
-## 13. Failure Handling Strategy
-
-If monitoring systems fail:
-
-- Core financial operations continue uninterrupted
-- Monitoring restarts automatically on reboot
-- Logs resume from last valid checkpoint
-- Devices enter degraded monitoring mode if necessary
-
-Monitoring failure never bricks a device.
+Devices can detect when they are falling behind and surface warnings locally.
 
 ---
 
-## 14. Privacy and Compliance Considerations
+## 6. Error Detection and Classification
 
-Monitoring explicitly avoids:
+Errors are categorized into defined classes:
 
-- Personal identifiers
-- Financial balances
-- Transaction contents
-- User behavior profiling
+- Power errors
+- Storage errors
+- Radio communication errors
+- Security and authentication errors
+- Ledger integrity errors
+- Sensor input failures
 
-All collected data complies with minimal-data and purpose-limitation principles.
+Each error includes:
+- Error code
+- Severity level
+- Recovery recommendation
+- Timestamp using logical clock
 
 ---
 
-## 15. Future Enhancements
+## 7. Logging Strategy
 
-Planned improvements include:
+Seed uses structured, minimal logging to conserve storage.
 
-- Predictive battery failure modeling
-- Mesh health heatmaps via gateway aggregation
-- Zero-knowledge proofs for integrity checks
-- Automated maintenance recommendations
+Principles:
+- Logs rotate automatically
+- Critical events are prioritized
+- Logs are encrypted at rest
+- No personally identifiable data is logged
+
+Logs may be exported selectively during maintenance or diagnostics.
+
+---
+
+## 8. Alerts and User Feedback
+
+Because constant connectivity cannot be assumed, alerts are delivered locally.
+
+Examples:
+- Low battery warnings
+- Storage nearly full
+- Sync backlog growing
+- Hardware sensor malfunction
+- Security anomaly detected
+
+Alerts use:
+- E-ink messages
+- Simple icons
+- Audio prompts (if supported)
+
+---
+
+## 9. Operator and Field Monitoring
+
+Field operators may collect monitoring data during visits.
+
+Supported actions:
+- Manual diagnostics scan
+- Secure export of health summaries
+- Firmware version verification
+- Post-repair validation checks
+
+All exports are opt-in and cryptographically signed.
+
+---
+
+## 10. Privacy and Safety Considerations
+
+Monitoring is designed to avoid:
+- User tracking
+- Transaction surveillance
+- Centralized behavioral analysis
+
+Safeguards include:
+- Aggregation before export
+- Removal of identifiers
+- Local user consent controls
+- Emergency wipe compatibility
+
+---
+
+## 11. Failure Response Integration
+
+Monitoring data feeds into:
+- Maintenance schedules
+- Replacement decisions
+- Firmware update targeting
+- Manufacturing improvements
+
+Critical failures trigger:
+- Safe-mode operation
+- Reduced power usage
+- Read-only ledger state if necessary
+
+---
+
+## 12. Future Enhancements
+
+Planned monitoring extensions:
+- Predictive battery failure detection
+- Trust-score-weighted diagnostics sharing
+- Anonymous fleet health dashboards
+- Automated field anomaly detection
+
+---
+
+## 13. Summary
+
+Monitoring in Seed is decentralized, delayed, and deliberate. By prioritizing device-level intelligence, privacy preservation, and resilience to disconnection, Seed achieves operational visibility without compromising its core mission of offline financial inclusion.
