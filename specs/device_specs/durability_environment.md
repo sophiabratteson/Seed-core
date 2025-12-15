@@ -1,147 +1,156 @@
-# Device Radio Specifications
+# Device Durability & Environmental Specifications
 
-This document defines the radio communication capabilities required for the Seed device. The radio subsystem is a core component enabling offline-first, peer-to-peer financial transactions across a mesh network without reliance on cellular networks, Wi-Fi, or centralized infrastructure.
-
----
-
-## 1. Purpose and Design Goals
-
-The radio system must:
-
-- Enable long-range, low-power communication between Seed devices
-- Operate reliably in low-connectivity and infrastructure-poor environments
-- Support mesh networking with multi-hop routing
-- Minimize power consumption to support solar and hand-crank charging
-- Comply with regional radio regulations
-- Provide secure transmission of financial data
+This document defines the environmental durability requirements for the Seed device. Seed is designed for use in low-resource, high-variability environments including rural regions, informal markets, refugee camps, disaster zones, and areas with limited infrastructure. Durability is a core product requirement, not a secondary feature.
 
 ---
 
-## 2. Communication Technology Selection
+## 1. Design Philosophy
 
-### Primary Radio Technology
-- **LoRa (Long Range Radio)**
-  - Chosen for its long-range, low-power characteristics
-  - Optimized for small packet transmission
-  - Well-suited for intermittent, asynchronous communication
+Seed devices must:
+- Operate reliably without climate control or protective infrastructure
+- Survive rough handling, transport, and daily field use
+- Remain functional over multiple years with minimal maintenance
+- Prioritize resilience over aesthetic fragility
 
-### Supported Chipsets
-- Semtech SX1276 / SX1278
-- Semtech SX1262 (preferred for newer revisions)
-- Equivalent LoRa-compatible transceivers with proven field reliability
+The durability model assumes **real-world abuse**, not ideal consumer conditions.
 
 ---
 
-## 3. Frequency Bands
+## 2. Operating Environment Targets
 
-Seed devices must support regionally appropriate unlicensed ISM bands:
+### Temperature
+- Operating range: **-10°C to +55°C**
+- Storage range: **-20°C to +65°C**
+- All components (battery, display, radio, secure element) must meet or exceed these ranges
 
-- **902–928 MHz** (US, Canada)
-- **863–870 MHz** (Europe)
-- **433 MHz** (optional, region-dependent)
-
-Devices must be manufactured or configured per region to ensure regulatory compliance.
-
----
-
-## 4. Transmission Characteristics
-
-### Range
-- Urban: 1–5 km (line-of-sight dependent)
-- Rural / Open terrain: up to 10–15 km
-- Mesh routing extends effective coverage beyond single-hop range
-
-### Data Rate
-- Typical payload size: 50–300 bytes
-- Data rate optimized for reliability over throughput
-- Adaptive spreading factor based on link quality
-
-### Latency
-- Not real-time
-- Designed for eventual consistency rather than immediate confirmation
-- Typical end-to-end sync latency: seconds to minutes depending on topology
+### Humidity
+- Operating humidity: **10%–95% non-condensing**
+- Device must tolerate intermittent condensation without permanent damage
+- Internal conformal coating recommended for PCB protection
 
 ---
 
-## 5. Power Characteristics
+## 3. Dust and Particulate Resistance
 
-- Transmit power: configurable up to regional legal limits
-- Typical TX current: 120–150 mA (burst)
-- Sleep current: < 5 µA
-- Duty-cycled operation to preserve battery life
-- Radio disabled entirely during idle periods
-
----
-
-## 6. Antenna Specifications
-
-- External or internal antenna support
-- Impedance: 50 ohms
-- Tuned per frequency band
-- Optional diversity support for future revisions
-- Mechanical design must protect antenna integrity in harsh environments
+- Target ingress protection: **IP54 minimum**
+  - Limited dust ingress permitted but no functional impairment
+  - Protection against splashing water from any direction
+- Sealed enclosure with gasketed seams
+- Ports minimized; charging ports protected by rubber or silicone covers
+- No exposed contacts on exterior surfaces
 
 ---
 
-## 7. Mesh Networking Capabilities
+## 4. Water Exposure
 
-The radio stack must support:
+Seed is not designed for full submersion but must tolerate:
+- Heavy rain
+- Accidental splashing
+- High-humidity storage environments
 
-- Peer discovery
-- Multi-hop message forwarding
-- Store-and-forward delivery
-- Opportunistic syncing when devices come into proximity
-- Dynamic neighbor tables
-
-Routing intelligence is handled at the mesh protocol layer, but radio hardware must support frequent state transitions and packet retransmissions.
-
----
-
-## 8. Packet Handling
-
-- Maximum packet size aligned with LoRa payload constraints
-- Support for fragmentation and reassembly at higher layers
-- CRC and checksum support at the radio level
-- Hardware-level packet integrity verification
+Design considerations:
+- Raised internal PCB standoffs
+- Drainage channels inside enclosure
+- Hydrophobic membrane over speaker/microphone ports (if present)
 
 ---
 
-## 9. Security Requirements
+## 5. Mechanical Durability
 
-- Encrypted payloads at higher protocol layers
-- Radio hardware must not leak sensitive metadata
-- Resistance to replay attacks through sequence numbers and logical clocks
-- Compatibility with device identity and signature schemes
+### Drop Resistance
+- Survive **1.5 meter drops** onto concrete on all faces and edges
+- No loss of core functionality after impact
+- Cosmetic damage acceptable if device remains operational
 
----
-
-## 10. Environmental and Reliability Requirements
-
-- Operating temperature: -20°C to +60°C
-- Tolerant to dust, humidity, and vibration
-- Stable performance under fluctuating power conditions
-- Graceful degradation under interference
+### Vibration
+- Tolerate vibration during transport (motorcycles, trucks, foot travel)
+- Internal components secured with mechanical fasteners, not adhesive alone
 
 ---
 
-## 11. Regulatory Compliance
+## 6. Enclosure Material Requirements
 
-- FCC Part 15 (US)
-- ETSI EN 300 220 (EU)
-- Regional certification as required
-- Firmware-configurable frequency and power limits
+Preferred materials:
+- Impact-resistant ABS or polycarbonate blend
+- UV-stabilized plastics to prevent degradation from sun exposure
+- Matte or textured finish to reduce visible wear
+
+Avoid:
+- Brittle plastics
+- Glass external surfaces
+- High-gloss finishes
 
 ---
 
-## 12. Future Expansion Considerations
+## 7. Button and Input Durability
 
-- Support for alternative sub-GHz protocols if required
-- Interoperability with community mesh networks
-- Gateway compatibility for optional internet bridging
-- Potential dual-radio designs in future hardware revisions
+- Physical buttons rated for **≥100,000 actuations**
+- Buttons must function with:
+  - Dusty fingers
+  - Light moisture
+  - Gloves (where possible)
+- Button seals integrated into enclosure to prevent ingress
+
+---
+
+## 8. Display Durability
+
+- E-ink display protected by:
+  - Recessed bezel or raised lip
+  - Scratch-resistant plastic cover (preferred over glass)
+- Display must remain readable under:
+  - Direct sunlight
+  - Low-light conditions (with optional front light)
+- Display failure must not brick device; core functions continue headless if needed
+
+---
+
+## 9. Battery and Power Resilience
+
+- Battery chemistry selected for:
+  - Thermal stability (LiFePO4 preferred)
+  - Low fire/explosion risk
+- Battery compartment mechanically isolated from PCB
+- Device must shut down safely under extreme thermal conditions
+
+---
+
+## 10. Tamper and Environmental Abuse Resistance
+
+- Visible tamper resistance:
+  - Enclosure screws not easily removable without tools
+- Internal tamper detection integrated where feasible
+- Device should fail securely (data protected) rather than catastrophically
+
+---
+
+## 11. Maintenance and Repair Considerations
+
+- Enclosure designed for:
+  - Field repair with basic tools
+  - Battery replacement without specialized equipment
+- No adhesives required for routine servicing
+- Clear separation between user-serviceable and non-serviceable components
+
+---
+
+## 12. Testing and Validation Standards
+
+Recommended validation tests:
+- Temperature cycling (thermal shock)
+- Drop testing (multi-axis)
+- Dust chamber exposure
+- Humidity soak testing
+- Long-duration power cycling
+
+Devices must pass durability testing **before** large-scale deployment or pilot programs.
 
 ---
 
 ## 13. Summary
 
-The Seed radio subsystem is designed to prioritize reliability, range, and energy efficiency over bandwidth. By leveraging LoRa-based mesh networking, Seed enables secure, decentralized financial communication in environments where traditional infrastructure does not exist. The radio system is foundational to Seed’s mission of financial inclusion and resilience.
+Seed’s durability specifications ensure the device remains functional in the environments where traditional financial infrastructure fails. Environmental resilience is essential to Seed’s mission of financial inclusion and long-term trust.
+
+A Seed device that breaks easily is not a Seed device.
+
+Durability is a non-negotiable system requirement.
